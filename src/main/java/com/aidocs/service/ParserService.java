@@ -7,5 +7,5 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface ParserService {
-    public List<Document> parse(MultipartFile file);
+     List<Document> parse(MultipartFile file);
 }
