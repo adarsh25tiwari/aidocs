@@ -1,9 +1,7 @@
 package com.aidocs.service;
 
 import com.aidocs.configuration.AppConfig;
-import com.aidocs.dto.CitationDto;
-import com.aidocs.dto.SearchRequestDto;
-import com.aidocs.dto.SearchResultDto;
+import com.aidocs.dto.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -14,11 +12,13 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -123,5 +123,98 @@ public class RagServiceImpl implements RagService {
                 .snippet(document.getText())
                 .similarityScore(score)
                 .metadata(meta).build();
+    }
+
+    public ChatResponseDto askQuestion(ChatRequestDto request){
+        long startTime = System.currentTimeMillis();
+
+        List<Document> similarDocuments = retrieveRelevantDocuments(
+                request.getQuestion(),
+                request.getDocumentId(),
+                request.getTopK(),
+                request.getMinSimilarity()
+        );
+
+
+        List<CitationDto> citationDtos = similarDocuments.stream()
+                .map(this::mapToCitation)
+                .toList();
+
+        String contextText = buildContextString(similarDocuments);
+        String prompt = buildPrompt(request.getQuestion(), contextText);
+
+        String answer = chatClient
+                .prompt()
+                .user(request.getQuestion())
+                .call()
+                .content();
+
+        long responseTime = System.currentTimeMillis() - startTime;
+
+        ChatResponseDto responseDto = ChatResponseDto.builder()
+                .answer(answer)
+                .conversationId(request.getConversationId() !=null ?  request.getConversationId().toString() : UUID.randomUUID().toString())
+                .citations(citationDtos)
+                .responseTimeMs(responseTime)
+                .build();
+
+        return responseDto;
+    }
+
+    private String buildPrompt(@NotBlank(message = "Question cannot be empty") String question, String contextText) {
+
+        if (contextText != null && !contextText.isBlank()) {
+            return String.format("""
+                           Document Context:
+                           ---------------------
+                           %s
+                           ---------------------                                        
+                           User Message / Question: %s             
+                           Instructions:
+                           - If the user's question relates to the document context above, prioritize answering using that context and reference key sections.
+                           - If the user is asking a general question, greeting, or discussing topics beyond the document context, respond helpfully and conversationally using your general knowledge while weaving in relevant document context if applicable
+                    
+                    """, contextText, question);
+        } else {
+            return String.format("""
+                       User Message / Question:
+                       %s                         
+                       Instructions:
+                          - Respond helpfully, accurately, and conversationally to the user's message using your broad knowledge base.
+                    
+                    """, question);
+        }
+
+
+    }
+
+    private String buildContextString(List<Document> similarDocuments) {
+        if (similarDocuments == null || similarDocuments.isEmpty()) {
+            return "";
+        }
+
+        return similarDocuments.stream().map(doc -> {
+            String fileName = (String) doc.getMetadata().getOrDefault("fileName", "Unknown File");
+            Object page = doc.getMetadata().getOrDefault("pageNumber", "N/A");
+            return String.format("[Source: %s | Page: %s]\n%s", fileName, page, doc.getText());
+        }).collect(Collectors.joining("\n\n---\n\n"));
+
+    }
+
+    public Flux<String> streamQuestionAnswer(ChatRequestDto requestDto) {
+        List<Document> relevantDocuments = retrieveRelevantDocuments(
+                requestDto.getQuestion(),
+                requestDto.getDocumentId(),
+                requestDto.getTopK(),
+                requestDto.getMinSimilarity()
+        );
+
+        String contextText = buildContextString(relevantDocuments);
+        String userPrompt = buildPrompt(requestDto.getQuestion(), contextText);
+
+        return chatClient.prompt()
+                .user(userPrompt)
+                .stream()
+                .content();
     }
 }
