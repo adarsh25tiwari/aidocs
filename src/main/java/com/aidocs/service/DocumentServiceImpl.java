@@ -4,6 +4,7 @@ import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
 import com.aidocs.entity.DocumentMetaData;
 import com.aidocs.entity.DocumentStatus;
+import com.aidocs.exception.DocumentProcessingException;
 import com.aidocs.exception.ResourceNotFoundException;
 import com.aidocs.respostory.DocumentMetaDataRepository;
 import org.modelmapper.ModelMapper;
@@ -59,11 +60,19 @@ public class DocumentServiceImpl implements DocumentService{
                .build();
 
        DocumentMetaData savedMetaData =  documentMetaDataRepository.save(documentMetaData);
+       Integer chunksCreated = 0;
+       List<Document> parsedDocument = null;
+       try{
+           // parse the document
+            parsedDocument = parserService.parse(file);
+           // ingest the document
+            chunksCreated = ingestService.ingest(savedMetaData,parsedDocument);
+       }
+       catch(DocumentProcessingException e){
+           documentMetaDataRepository.delete(savedMetaData);
+           throw e;
+       }
 
-    // parse the document
-        List<Document> parsedDocument = parserService.parse(file);
-    // ingest the document
-       Integer chunksCreated = ingestService.ingest(savedMetaData,parsedDocument);
 
          return DocumentResponseDto.builder()
                  .id(savedMetaData.getId())
