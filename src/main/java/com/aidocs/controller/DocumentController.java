@@ -1,18 +1,18 @@
 package com.aidocs.controller;
 
 import com.aidocs.dto.ApiResponse;
+import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
 import com.aidocs.service.DocumentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/documents")
@@ -37,4 +37,69 @@ public class DocumentController {
 
        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+
+    @PostMapping(value = "/upload-multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<DocumentResponseDto>>> uploadMultiple(
+            @RequestParam("files") List<MultipartFile> files) {
+
+        List<DocumentResponseDto> responseDtos = documentService.uploadMultipleDocuments(files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(
+                        ApiResponse.<List<DocumentResponseDto>>
+                                        builder()
+                                .message("Document uploaded successfully")
+                                .success(true)
+                                .timestamp(LocalDateTime.now())
+                                .data(responseDtos)
+                                .build()
+                );
+    }
+
+
+
+    //    list all uploaded documents
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<DocumentMetadataDto>>> getAllDocuments(){
+        java.util.List<DocumentMetadataDto> documents =documentService.getAllDocuments();
+        return ResponseEntity.ok(
+                ApiResponse.<List<DocumentMetadataDto>>
+                                builder()
+                        .message("All documents is here")
+                        .success(true)
+                        .timestamp(LocalDateTime.now())
+                        .data(documents)
+                        .build()
+        );
+    }
+
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<DocumentMetadataDto>> getDocumentById(@PathVariable UUID id) {
+        DocumentMetadataDto document = documentService.getDocumentById(id);
+        return ResponseEntity.ok(
+                ApiResponse.<DocumentMetadataDto>
+                                builder()
+                        .message("Single document is here")
+                        .success(true)
+                        .timestamp(LocalDateTime.now())
+                        .data(document)
+                        .build()
+        );
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteDocument(@PathVariable UUID id) {
+        documentService.deleteDocument(id);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>
+                                builder()
+                        .message("Document deleted successfully")
+                        .success(true)
+                        .timestamp(LocalDateTime.now())
+                        .data(null)
+                        .build()
+        );
+    }
+
 }

@@ -1,37 +1,47 @@
 package com.aidocs.service;
 
+import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
 import com.aidocs.entity.DocumentMetaData;
 import com.aidocs.entity.DocumentStatus;
+import com.aidocs.exception.ResourceNotFoundException;
 import com.aidocs.respostory.DocumentMetaDataRepository;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.document.DocumentMetadata;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class DocumentServiceImpl implements DocumentService{
 
-    private DocumentMetaDataRepository documentMetaDataRepository;
-    private JdbcTemplate jdbcTemplate;
-    private IngestService ingestService;
-    private ParserService parserService;
+    private static final Logger log =  LoggerFactory.getLogger(DocumentServiceImpl.class);
+
+    private final DocumentMetaDataRepository documentMetaDataRepository;
+    private final  JdbcTemplate jdbcTemplate;
+    private final IngestService ingestService;
+    private final ParserService parserService;
+    private final ModelMapper modelMapper;
 
     public DocumentServiceImpl(DocumentMetaDataRepository documentMetaDataRepository,
                                JdbcTemplate jdbcTemplate,
                                ParserService parserService,
-                               IngestService ingestService) {
+                               IngestService ingestService,
+                               ModelMapper modelMapper) {
         this.documentMetaDataRepository = documentMetaDataRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.parserService = parserService;
         this.ingestService = ingestService;
+        this.modelMapper = modelMapper;
     }
-    private static final Logger logger  = LoggerFactory.getLogger(DocumentServiceImpl.class);
 
     @Override
     public DocumentResponseDto uploadAndProcess(MultipartFile file) {
@@ -63,5 +73,49 @@ public class DocumentServiceImpl implements DocumentService{
                  .status(savedMetaData.getStatus())
                  .message("document processed and indexed successfully..!")
                  .build();
+    }
+
+    @Override
+    public List<DocumentResponseDto> uploadMultipleDocuments(List<MultipartFile> files) {
+
+        List<DocumentResponseDto> responseDtos = new ArrayList<>();
+        for (MultipartFile file : files) {
+            DocumentResponseDto result = this.uploadAndProcess(file);
+            responseDtos.add(result);
+        }
+
+        return responseDtos;
+    }
+
+    @Override
+    public List<DocumentMetadataDto> getAllDocuments() {
+        List<DocumentMetaData> allDocuments = documentMetaDataRepository.findAllByOrderByCreationDateDesc();
+        return allDocuments.stream()
+                .map(documentMetaData  -> modelMapper.map(documentMetaData, DocumentMetadataDto.class))
+                .toList();
+    }
+
+    @Override
+    public DocumentMetadataDto getDocumentById(UUID id) {
+        DocumentMetaData documentMetaData = documentMetaDataRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));
+        return modelMapper.map(documentMetaData, DocumentMetadataDto.class);
+    }
+
+    @Override
+    public void deleteDocument(UUID id) {
+
+        DocumentMetaData documentMetaData = documentMetaDataRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));
+
+        documentMetaDataRepository.delete(documentMetaData);
+        //delete the vector entries
+        try {
+            String deleteVectorsSql = "DELETE FROM vector_store WHERE metadata->>'documentId' = ?";
+            int deletedCount = jdbcTemplate.update(deleteVectorsSql, id.toString());
+            log.info("Deleted {} vector chunks for document id {} ", deletedCount, id);
+
+        } catch (Exception e) {
+            log.warn("cloud not delete vectors from vector store directly: {}", e.getMessage());
+        }
+
     }
 }
