@@ -71,7 +71,7 @@ public class RagServiceImpl implements RagService {
         }
 
         try{
-            List<Document> documents = vectorStore.similaritySearch(SearchRequest.builder().build());
+            List<Document> documents = vectorStore.similaritySearch(searchRequestBuilder.build());
             return documents;
 
         }catch(Exception e){
@@ -145,7 +145,7 @@ public class RagServiceImpl implements RagService {
 
         String answer = chatClient
                 .prompt()
-                .user(request.getQuestion())
+                .user(prompt)
                 .call()
                 .content();
 

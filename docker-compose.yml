@@ -9,10 +9,19 @@ services:
       POSTGRES_DB: aidocs
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-
     volumes:
       - docpgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aidocs-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+
 volumes:
   docpgdata:
+  ollamadata:

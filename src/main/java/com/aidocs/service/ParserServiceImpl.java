@@ -30,7 +30,7 @@ public class ParserServiceImpl implements ParserService {
                 }
             };
 
-            if(fileName.toLowerCase().endsWith(".pdf") || contentType.contains(".pdf")){
+            if(fileName.toLowerCase().endsWith(".pdf") || contentType.toLowerCase().contains(".pdf")){
                 return parsePdf(resource);
             }else{
                 return genricParser(resource);

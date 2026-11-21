@@ -7,6 +7,7 @@ import com.aidocs.entity.DocumentStatus;
 import com.aidocs.exception.DocumentProcessingException;
 import com.aidocs.exception.ResourceNotFoundException;
 import com.aidocs.respostory.DocumentMetaDataRepository;
+import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +69,7 @@ public class DocumentServiceImpl implements DocumentService{
            // ingest the document
             chunksCreated = ingestService.ingest(savedMetaData,parsedDocument);
        }
-       catch(DocumentProcessingException e){
+       catch(RuntimeException e){
            documentMetaDataRepository.delete(savedMetaData);
            throw e;
        }
@@ -111,6 +112,7 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     @Override
+    @Transactional
     public void deleteDocument(UUID id) {
 
         DocumentMetaData documentMetaData = documentMetaDataRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));

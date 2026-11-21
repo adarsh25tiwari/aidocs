@@ -89,7 +89,7 @@ public class IngestServiceImpl implements IngestService{
                 vectorStore.add(enrichedChunks);
 
                 //Update document status to index
-                documentMetaData.setStatus(DocumentStatus.INDEXING);
+                documentMetaData.setStatus(DocumentStatus.INDEXED);
                 documentMetaData.setTotalChunks(enrichedChunks.size());
                 documentMetaData.setErrorMessage(null);
                 documentMetaDataRepository.save(documentMetaData);

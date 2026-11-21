@@ -13,7 +13,7 @@ import java.util.UUID;
 @Builder
 public class DocumentMetadataDto {
     private UUID id;
-    private  String filename;
+    private  String fileName;
     private  String contentType;
     private  Long fileSize;
     private Integer totalPages;

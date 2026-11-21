@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/chat")
@@ -41,8 +42,14 @@ public class ChatController {
     }
 
     @PostMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> streamQuestion( @Valid @RequestBody ChatRequestDto requestDto){
-        return ragService.streamQuestionAnswer(requestDto);
+    public Flux<Map<String,Object>> streamQuestion(@Valid @RequestBody ChatRequestDto requestDto){
+
+        return ragService.streamQuestionAnswer(requestDto)
+                .map(token -> Map.<String, Object>of("token", token))
+                .concatWith(Flux.just(Map.<String, Object>of("done", true)))
+                .onErrorResume(e -> Flux.just(Map.<String, Object>of(
+                        "error", String.valueOf(e.getMessage()), "done", true)));
+
     }
 
 
