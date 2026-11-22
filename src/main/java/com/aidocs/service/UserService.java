@@ -4,5 +4,5 @@ import com.aidocs.dto.*;
 
 public interface UserService {
    public UserDto signup(SignupRequest signupRequest);
-   public LoginResponse login(LoginRequest loginRequest);
+ //  public LoginResponse login(LoginRequest loginRequest);
 }
