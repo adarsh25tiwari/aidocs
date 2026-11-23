@@ -20,10 +20,10 @@ public class UserServiceImpl implements UserService{
     @Override
     public UserDto signup(SignupRequest signupRequest) {
 
-        if(signupRequest.username().isBlank()){
+        if(signupRequest.username() == null || signupRequest.username().isBlank()){
             throw new IllegalArgumentException("Username is required");
         }
-        else if(signupRequest.password().isBlank()){
+        else if(signupRequest.password() == null ||signupRequest.password().isBlank()){
             throw new IllegalArgumentException("Password is required");
         }
 
@@ -47,5 +47,5 @@ public class UserServiceImpl implements UserService{
     public LoginResponse login(LoginRequest loginRequest) {
         return null;
     }*/
-    
+
 }

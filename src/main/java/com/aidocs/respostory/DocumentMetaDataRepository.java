@@ -1,6 +1,7 @@
 package com.aidocs.respostory;
 
 import com.aidocs.entity.DocumentMetaData;
+import com.aidocs.entity.User;
 import org.springframework.ai.document.DocumentMetadata;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -12,4 +13,6 @@ import java.util.UUID;
 public interface DocumentMetaDataRepository extends JpaRepository<DocumentMetaData, UUID> {
 
     List<DocumentMetaData> findAllByOrderByCreationDateDesc();
+
+    List<DocumentMetaData> findByUserOrderByCreationDateDesc(User user);
 }

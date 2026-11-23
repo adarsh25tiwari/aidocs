@@ -13,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,7 +29,7 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(LoginRequest loginRequest) {
+    public ResponseEntity<LoginResponse> login( @RequestBody LoginRequest loginRequest) {
         //do authentication and return token and user
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 loginRequest.username(),
@@ -49,7 +50,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<UserDto> signup(SignupRequest signupRequest) {
+    public ResponseEntity<UserDto> signup( @RequestBody SignupRequest signupRequest) {
         UserDto userDto = userService.signup(signupRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(userDto);
     }

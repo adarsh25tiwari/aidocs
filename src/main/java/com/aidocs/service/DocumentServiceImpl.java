@@ -4,6 +4,7 @@ import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
 import com.aidocs.entity.DocumentMetaData;
 import com.aidocs.entity.DocumentStatus;
+import com.aidocs.entity.User;
 import com.aidocs.exception.DocumentProcessingException;
 import com.aidocs.exception.ResourceNotFoundException;
 import com.aidocs.respostory.DocumentMetaDataRepository;
@@ -46,7 +47,7 @@ public class DocumentServiceImpl implements DocumentService{
     }
 
     @Override
-    public DocumentResponseDto uploadAndProcess(MultipartFile file) {
+    public DocumentResponseDto uploadAndProcess(MultipartFile file, User user) {
     // save the document
        String fileName =  file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
        String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
@@ -57,6 +58,7 @@ public class DocumentServiceImpl implements DocumentService{
                .contentType(contentType)
                .fileSize(file.getSize())
                .status(DocumentStatus.UPLOADING)
+               .user(user)
                .creationDate(LocalDateTime.now())
                .build();
 
@@ -81,26 +83,36 @@ public class DocumentServiceImpl implements DocumentService{
                  .chunksCreated(chunksCreated)
                  .fileSize(savedMetaData.getFileSize())
                  .status(savedMetaData.getStatus())
+                 .userId(savedMetaData.getUser().getId())
                  .message("document processed and indexed successfully..!")
                  .build();
     }
 
     @Override
-    public List<DocumentResponseDto> uploadMultipleDocuments(List<MultipartFile> files) {
+    public List<DocumentResponseDto> uploadMultipleDocuments(List<MultipartFile> files,User user) {
 
         List<DocumentResponseDto> responseDtos = new ArrayList<>();
         for (MultipartFile file : files) {
-            DocumentResponseDto result = this.uploadAndProcess(file);
+            DocumentResponseDto result = this.uploadAndProcess(file,user);
             responseDtos.add(result);
         }
 
         return responseDtos;
     }
 
+    // It will be for admin future impl
     @Override
     public List<DocumentMetadataDto> getAllDocuments() {
         List<DocumentMetaData> allDocuments = documentMetaDataRepository.findAllByOrderByCreationDateDesc();
         return allDocuments.stream()
+                .map(documentMetaData  -> modelMapper.map(documentMetaData, DocumentMetadataDto.class))
+                .toList();
+    }
+
+    // User to get all his documents
+    public List<DocumentMetadataDto> getAllDocumentsByUser(User  user) {
+        List<DocumentMetaData> documents = documentMetaDataRepository.findByUserOrderByCreationDateDesc(user);
+        return documents.stream()
                 .map(documentMetaData  -> modelMapper.map(documentMetaData, DocumentMetadataDto.class))
                 .toList();
     }

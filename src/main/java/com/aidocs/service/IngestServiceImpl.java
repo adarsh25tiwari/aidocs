@@ -69,6 +69,7 @@ public class IngestServiceImpl implements IngestService{
                     enrichedMetaData.put("fileName", documentMetaData.getFileName());
                     enrichedMetaData.put("contentType", documentMetaData.getContentType());
                     enrichedMetaData.put("chunkIndex", i);
+                    enrichedMetaData.put("userId",documentMetaData.getUser().getId());
 
                     // Preserve or calculate page number if available
                     Object pageNumber = chunk.getMetadata().get("page_number");

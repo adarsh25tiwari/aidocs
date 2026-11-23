@@ -3,10 +3,13 @@ package com.aidocs.controller;
 import com.aidocs.dto.ApiResponse;
 import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
+import com.aidocs.entity.User;
 import com.aidocs.service.DocumentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,9 +28,13 @@ public class DocumentController {
 
     @PostMapping(value = "/upload",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<DocumentResponseDto>> uploadDocument(
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
 
-        DocumentResponseDto document = documentService.uploadAndProcess(file);
+        User user = (User) authentication.getPrincipal();
+
+        // process document
+        DocumentResponseDto document = documentService.uploadAndProcess(file,user);
 
         ApiResponse<DocumentResponseDto> response = new ApiResponse<>();
         response.setSuccess(true);
@@ -41,9 +48,12 @@ public class DocumentController {
 
     @PostMapping(value = "/upload-multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<DocumentResponseDto>>> uploadMultiple(
-            @RequestParam("files") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files,
+            Authentication authentication) {
 
-        List<DocumentResponseDto> responseDtos = documentService.uploadMultipleDocuments(files);
+        User user=(User)authentication.getPrincipal();
+
+        List<DocumentResponseDto> responseDtos = documentService.uploadMultipleDocuments(files,user);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
                         ApiResponse.<List<DocumentResponseDto>>
@@ -56,9 +66,29 @@ public class DocumentController {
                 );
     }
 
+    //    list all uploaded documents of logged-in user
+    @GetMapping("/user")
+    public ResponseEntity<ApiResponse<List<DocumentMetadataDto>>>
+    getAllDocumentsOfLoggedInUser(Authentication authentication){
+
+        User user = (User)  authentication.getPrincipal();
+
+        java.util.List<DocumentMetadataDto> documents =documentService.getAllDocumentsByUser(user);
+        return ResponseEntity.ok(
+                ApiResponse.<List<DocumentMetadataDto>>
+                                builder()
+                        .message("All documents is here")
+                        .success(true)
+                        .timestamp(LocalDateTime.now())
+                        .data(documents)
+                        .build()
+        );
+    }
 
 
-    //    list all uploaded documents
+
+    //    list all uploaded documents , for admin
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<DocumentMetadataDto>>> getAllDocuments(){
         java.util.List<DocumentMetadataDto> documents =documentService.getAllDocuments();
