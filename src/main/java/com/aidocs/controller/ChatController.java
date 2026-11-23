@@ -1,9 +1,11 @@
 package com.aidocs.controller;
 
 import com.aidocs.dto.*;
+import com.aidocs.entity.User;
 import com.aidocs.service.RagService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,9 +27,11 @@ public class ChatController {
 
     @PostMapping("/query")
     public ResponseEntity<ApiResponse<ChatResponseDto>> askQuestion(
-            @Valid @RequestBody ChatRequestDto requestDto) {
+            @Valid @RequestBody ChatRequestDto requestDto,
+            Authentication authentication) {
 
-        ChatResponseDto chatResponseDto = ragService.askQuestion(requestDto);
+        User user = (User) authentication.getPrincipal();
+        ChatResponseDto chatResponseDto = ragService.askQuestion(requestDto,user.getId());
         return ResponseEntity.ok(
                 ApiResponse.
                         <ChatResponseDto>
@@ -42,9 +46,12 @@ public class ChatController {
     }
 
     @PostMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<Map<String,Object>> streamQuestion(@Valid @RequestBody ChatRequestDto requestDto){
+    public Flux<Map<String,Object>> streamQuestion(@Valid @RequestBody ChatRequestDto requestDto,
+                                                   Authentication authentication) {
 
-        return ragService.streamQuestionAnswer(requestDto)
+        Long userId = ((User) authentication.getPrincipal()).getId();
+
+        return ragService.streamQuestionAnswer(requestDto,userId)
                 .map(token -> Map.<String, Object>of("token", token))
                 .concatWith(Flux.just(Map.<String, Object>of("done", true)))
                 .onErrorResume(e -> Flux.just(Map.<String, Object>of(
@@ -55,9 +62,11 @@ public class ChatController {
 
     @PostMapping("/search/similarity")
     public ResponseEntity<ApiResponse<SearchResultDto>> searchSimilar(
-            @Valid @RequestBody SearchRequestDto request) {
+            @Valid @RequestBody SearchRequestDto request,Authentication authentication) {
 
-        SearchResultDto results = ragService.searchSimilarChunks(request);
+        User user = (User) authentication.getPrincipal();
+
+        SearchResultDto results = ragService.searchSimilarChunks(request,user.getId());
         return ResponseEntity.ok(
                 ApiResponse.
                         <SearchResultDto>

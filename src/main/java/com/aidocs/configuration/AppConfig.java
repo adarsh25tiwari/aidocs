@@ -29,6 +29,10 @@ public class AppConfig {
         private int topK = 5;
         private double similarityThreshold = 0.0;
 
+        // Used by chat when NO single document is selected. Chunks scoring below this are ignored,
+        // so "hi" / general questions are answered by the LLM instead of being forced onto document text.
+        private double chatSimilarityThreshold = 0.5;
+
 
     }
 

@@ -8,8 +8,8 @@ import org.springframework.ai.document.Document;
 import reactor.core.publisher.Flux;
 
 public interface RagService {
-    SearchResultDto searchSimilarChunks(SearchRequestDto request);
-    Flux<String> streamQuestionAnswer(ChatRequestDto requestDto);
-    ChatResponseDto askQuestion(ChatRequestDto request);
+    SearchResultDto searchSimilarChunks(SearchRequestDto request,Long userId);
+    Flux<String> streamQuestionAnswer(ChatRequestDto requestDto,Long userId);
+    ChatResponseDto askQuestion(ChatRequestDto request,Long userId);
 
 }

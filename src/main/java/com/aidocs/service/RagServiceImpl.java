@@ -31,10 +31,11 @@ public class RagServiceImpl implements RagService {
 
 
     @Override
-    public SearchResultDto searchSimilarChunks(SearchRequestDto request) {
+    public SearchResultDto searchSimilarChunks(SearchRequestDto request,Long  userId) {
         java.util.List<Document> matchedDocs = retrieveRelevantDocuments(
                 request.getQuery(),
                 request.getDocumentId(),
+                userId,
                 request.getTopK(),
                 request.getSimilaritySearch());
 
@@ -51,6 +52,7 @@ public class RagServiceImpl implements RagService {
 
     private List<Document> retrieveRelevantDocuments(@NotBlank(message = "Query cant be empty") String query,
                                                      UUID documentId,
+                                                     Long  userId,
                                                      Integer topK, Double similaritySearch) {
 
         int effectiveTopK = (topK != null && topK > 0) ? topK : appConfig.getRag().getTopK();
@@ -65,10 +67,13 @@ public class RagServiceImpl implements RagService {
             searchRequestBuilder.similarityThreshold(effectiveSimilarity);
         }
 
-        if(documentId != null) {
-            FilterExpressionBuilder b = new  FilterExpressionBuilder();
-            searchRequestBuilder.filterExpression(b.eq("documentId",documentId.toString()).build());
+        // Only ever search the logged-in user's own chunks (stored as metadata "userId" during ingest)
+        FilterExpressionBuilder b = new FilterExpressionBuilder();
+        FilterExpressionBuilder.Op filter = b.eq("userId", userId);
+        if (documentId != null) {
+            filter = b.and(filter, b.eq("documentId", documentId.toString()));
         }
+        searchRequestBuilder.filterExpression(filter.build());
 
         try{
             List<Document> documents = vectorStore.similaritySearch(searchRequestBuilder.build());
@@ -125,12 +130,29 @@ public class RagServiceImpl implements RagService {
                 .metadata(meta).build();
     }
 
-    public ChatResponseDto askQuestion(ChatRequestDto request){
+    /**
+     * Chat threshold:
+     *  - caller supplied minSimilarity -> use it
+     *  - a single document is selected -> 0 (always give the model that document's best chunks)
+     *  - all documents -> app.rag.chat-similarity-threshold, so unrelated / general messages
+     *    (greetings, maths, coding...) get NO document context and are answered as a normal chatbot.
+     */
+    private double chatThreshold(ChatRequestDto request) {
+        if (request.getMinSimilarity() != null) {
+            return request.getMinSimilarity();
+        }
+        return request.getDocumentId() != null ? 0.0 : appConfig.getRag().getChatSimilarityThreshold();
+    }
+
+
+
+    public ChatResponseDto askQuestion(ChatRequestDto request,Long userId) {
         long startTime = System.currentTimeMillis();
 
         List<Document> similarDocuments = retrieveRelevantDocuments(
                 request.getQuestion(),
                 request.getDocumentId(),
+                userId,
                 request.getTopK(),
                 request.getMinSimilarity()
         );
@@ -171,8 +193,9 @@ public class RagServiceImpl implements RagService {
                            ---------------------                                        
                            User Message / Question: %s             
                            Instructions:
-                           - If the user's question relates to the document context above, prioritize answering using that context and reference key sections.
-                           - If the user is asking a general question, greeting, or discussing topics beyond the document context, respond helpfully and conversationally using your general knowledge while weaving in relevant document context if applicable
+                            - If the question relates to the document context above, answer from that context and mention the source file / page.
+                            - If the context is not relevant to the question, ignore it and answer helpfully from your general knowledge.
+                            - Never reply with "no chunks / no context found"; always give the user a useful answer.
                     
                     """, contextText, question);
         } else {
@@ -180,8 +203,10 @@ public class RagServiceImpl implements RagService {
                        User Message / Question:
                        %s                         
                        Instructions:
-                          - Respond helpfully, accurately, and conversationally to the user's message using your broad knowledge base.
-                    
+                         - No uploaded document matched this message. Respond helpfully, accurately and conversationally using your general knowledge.
+                         - Greetings and small talk are welcome: reply naturally.
+                         - If the user is clearly asking about the contents of their own documents, say briefly that you could not find that in their uploaded documents, then help as best you can.
+                         - Never reply with "no chunks / no context found".
                     """, question);
         }
 
@@ -201,10 +226,11 @@ public class RagServiceImpl implements RagService {
 
     }
 
-    public Flux<String> streamQuestionAnswer(ChatRequestDto requestDto) {
+    public Flux<String> streamQuestionAnswer(ChatRequestDto requestDto,Long userId) {
         List<Document> relevantDocuments = retrieveRelevantDocuments(
                 requestDto.getQuestion(),
                 requestDto.getDocumentId(),
+                userId,
                 requestDto.getTopK(),
                 requestDto.getMinSimilarity()
         );
