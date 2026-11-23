@@ -105,8 +105,12 @@ public class DocumentController {
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<DocumentMetadataDto>> getDocumentById(@PathVariable UUID id) {
-        DocumentMetadataDto document = documentService.getDocumentById(id);
+    public ResponseEntity<ApiResponse<DocumentMetadataDto>> getDocumentById(
+            @PathVariable UUID id,
+            Authentication authentication) {
+
+        User user = (User) authentication.getPrincipal();
+        DocumentMetadataDto document = documentService.getDocumentById(id,user);
         return ResponseEntity.ok(
                 ApiResponse.<DocumentMetadataDto>
                                 builder()
@@ -119,8 +123,11 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteDocument(@PathVariable UUID id) {
-        documentService.deleteDocument(id);
+    public ResponseEntity<ApiResponse<Void>> deleteDocument(@PathVariable UUID id,Authentication authentication) {
+
+        User user = (User) authentication.getPrincipal();
+
+        documentService.deleteDocument(id, user);
         return ResponseEntity.ok(
                 ApiResponse.<Void>
                                 builder()

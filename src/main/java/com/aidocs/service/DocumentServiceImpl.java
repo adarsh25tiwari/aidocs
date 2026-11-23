@@ -4,6 +4,7 @@ import com.aidocs.dto.DocumentMetadataDto;
 import com.aidocs.dto.DocumentResponseDto;
 import com.aidocs.entity.DocumentMetaData;
 import com.aidocs.entity.DocumentStatus;
+import com.aidocs.entity.Role;
 import com.aidocs.entity.User;
 import com.aidocs.exception.DocumentProcessingException;
 import com.aidocs.exception.ResourceNotFoundException;
@@ -70,6 +71,12 @@ public class DocumentServiceImpl implements DocumentService{
             parsedDocument = parserService.parse(file);
            // ingest the document
             chunksCreated = ingestService.ingest(savedMetaData,parsedDocument);
+
+           if (chunksCreated == null || chunksCreated == 0) {
+               // ex: scanned/image-only PDF: nothing to index, don't report a fake success
+               throw new DocumentProcessingException(
+                       "No readable text found in '" + fileName + "' (scanned or empty file?)");
+           }
        }
        catch(RuntimeException e){
            documentMetaDataRepository.delete(savedMetaData);
@@ -117,18 +124,29 @@ public class DocumentServiceImpl implements DocumentService{
                 .toList();
     }
 
+    // Owner (or ADMIN) only. Not-owner is reported as "not found" so ids of other users are not revealed.
+
+    private DocumentMetaData findAccessibleDocument(UUID id, User user) {
+        DocumentMetaData doc = documentMetaDataRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));
+        boolean owner = doc.getUser() != null && doc.getUser().getId().equals(user.getId());
+        boolean admin = user.getRole() == Role.ADMIN;
+        if (!owner && !admin) {
+            throw new ResourceNotFoundException("Document with given id not found !!");
+        }
+        return doc;
+    }
     @Override
-    public DocumentMetadataDto getDocumentById(UUID id) {
-        DocumentMetaData documentMetaData = documentMetaDataRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));
+    public DocumentMetadataDto getDocumentById(UUID id,User user) {
+        DocumentMetaData documentMetaData = findAccessibleDocument(id, user);
         return modelMapper.map(documentMetaData, DocumentMetadataDto.class);
     }
 
     @Override
     @Transactional
-    public void deleteDocument(UUID id) {
+    public void deleteDocument(UUID id,User user) {
 
-        DocumentMetaData documentMetaData = documentMetaDataRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Document with given id not found !!"));
-
+        DocumentMetaData documentMetaData = findAccessibleDocument(id, user);
         documentMetaDataRepository.delete(documentMetaData);
         //delete the vector entries
         try {

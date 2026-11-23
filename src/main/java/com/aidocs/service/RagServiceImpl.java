@@ -154,7 +154,8 @@ public class RagServiceImpl implements RagService {
                 request.getDocumentId(),
                 userId,
                 request.getTopK(),
-                request.getMinSimilarity()
+                chatThreshold(request)
+               // request.getMinSimilarity()
         );
 
 
@@ -232,7 +233,8 @@ public class RagServiceImpl implements RagService {
                 requestDto.getDocumentId(),
                 userId,
                 requestDto.getTopK(),
-                requestDto.getMinSimilarity()
+                chatThreshold(requestDto)
+               // requestDto.getMinSimilarity()
         );
 
         String contextText = buildContextString(relevantDocuments);

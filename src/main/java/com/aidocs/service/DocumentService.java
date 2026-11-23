@@ -15,9 +15,9 @@ public interface DocumentService {
 
     List<DocumentMetadataDto> getAllDocuments();
 
-    DocumentMetadataDto getDocumentById(UUID id);
+    DocumentMetadataDto getDocumentById(UUID id,User user);
 
-    void deleteDocument(UUID id);
+    void deleteDocument(UUID id,User  user);
 
     List<DocumentMetadataDto> getAllDocumentsByUser(User  user);
 }
