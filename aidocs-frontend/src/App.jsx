@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import ChatPanel from "./components/ChatPanel.jsx";
-import { deleteDocument, listDocuments, searchChunks, streamChat, uploadDocument } from "./api.js";
+import AuthPage from "./components/AuthPage.jsx";
+import {
+  CHAT_MIN_SIMILARITY,
+  deleteDocument,
+  getStoredUser,
+  hasValidSession,
+  listDocuments,
+  logout,
+  searchChunks,
+  setUnauthorizedHandler,
+  streamChat,
+  uploadDocument,
+} from "./api.js";
 
 let nextId = 1;
 const newId = () => nextId++;
 
 export default function App() {
+  // null = logged out -> login page is shown
+  const [user, setUser] = useState(() => (hasValidSession() ? getStoredUser() : null));
   const [documents, setDocuments] = useState([]);
   const [docsError, setDocsError] = useState("");
   const [selectedDocId, setSelectedDocId] = useState(null); // null = all documents
@@ -24,9 +38,34 @@ export default function App() {
     }
   }, []);
 
+  function resetState() {
+    setDocuments([]);
+    setDocsError("");
+    setSelectedDocId(null);
+    setUploads([]);
+    setMessages([]);
+    setBusy(false);
+  }
+
+  function handleLogout() {
+    abortRef.current?.abort();
+    logout();
+    resetState();
+    setUser(null);
+  }
+
+  // when the backend returns 401 (token expired) api.js calls this
   useEffect(() => {
-    refreshDocuments();
-  }, [refreshDocuments]);
+    setUnauthorizedHandler(() => {
+      resetState();
+      setUser(null);
+    });
+  }, []);
+
+  // load this user's documents once logged in
+  useEffect(() => {
+    if (user) refreshDocuments();
+  }, [user, refreshDocuments]);
 
   // ---------- documents ----------
   async function handleUpload(files) {
@@ -57,7 +96,7 @@ export default function App() {
 
   // ---------- chat ----------
   const patchMessage = (id, fn) =>
-    setMessages((ms) => ms.map((m) => (m.id === id ? { ...m, ...fn(m) } : m)));
+      setMessages((ms) => ms.map((m) => (m.id === id ? { ...m, ...fn(m) } : m)));
 
   async function handleAsk(question, mode) {
     const userMsg = { id: newId(), role: "user", content: question };
@@ -71,8 +110,10 @@ export default function App() {
         patchMessage(aiId, () => ({
           pending: false,
           content: res.totalMatches
-            ? `Found ${res.totalMatches} matching chunk${res.totalMatches > 1 ? "s" : ""}:`
-            : "No matching chunks found.",
+              ? `Found ${res.totalMatches} matching chunk${res.totalMatches > 1 ? "s" : ""}:`
+              : documents.length === 0
+                  ? "You haven't uploaded any documents yet, so there is nothing to search. Upload one, or switch to 💬 Chat to ask me anything."
+                  : "I couldn't find passages like that in your documents. Try different words, or switch to 💬 Chat to ask me directly.",
           sources: res.matches,
         }));
       } catch (e) {
@@ -95,7 +136,12 @@ export default function App() {
       patchMessage(aiId, () => ({ pending: false, streaming: false }));
       // Show which chunks the answer was based on
       try {
-        const res = await searchChunks({ query: question, documentId: selectedDocId });
+        // same threshold the backend used for chat, so a plain "hi" shows no sources
+        const res = await searchChunks({
+          query: question,
+          documentId: selectedDocId,
+          similaritySearch: selectedDocId ? undefined : CHAT_MIN_SIMILARITY,
+        });
         patchMessage(aiId, () => ({ sources: res.matches }));
       } catch {
         /* sources are optional */
@@ -114,27 +160,34 @@ export default function App() {
 
   const selectedDoc = documents.find((d) => d.id === selectedDocId);
 
+  if (!user) {
+    return <AuthPage onLoggedIn={setUser} />;
+  }
+
   return (
-    <div className="app">
-      <Sidebar
-        documents={documents}
-        docsError={docsError}
-        selectedDocId={selectedDocId}
-        onSelect={setSelectedDocId}
-        onUpload={handleUpload}
-        onDelete={handleDelete}
-        onRefresh={refreshDocuments}
-        uploads={uploads}
-      />
-      <ChatPanel
-        messages={messages}
-        busy={busy}
-        scopeLabel={selectedDoc ? selectedDoc.fileName : "All documents"}
-        hasDocuments={documents.length > 0}
-        onAsk={handleAsk}
-        onStop={() => abortRef.current?.abort()}
-        onClear={() => setMessages([])}
-      />
-    </div>
+      <div className="app">
+        <Sidebar
+            documents={documents}
+            docsError={docsError}
+            selectedDocId={selectedDocId}
+            onSelect={setSelectedDocId}
+            onUpload={handleUpload}
+            onDelete={handleDelete}
+            onRefresh={refreshDocuments}
+            uploads={uploads}
+            user={user}
+            onLogout={handleLogout}
+        />
+        <ChatPanel
+            messages={messages}
+            busy={busy}
+            scopeLabel={selectedDoc ? selectedDoc.fileName : "All documents"}
+            hasDocuments={documents.length > 0}
+            userName={user.username}
+            onAsk={handleAsk}
+            onStop={() => abortRef.current?.abort()}
+            onClear={() => setMessages([])}
+        />
+      </div>
   );
 }
