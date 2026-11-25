@@ -9,6 +9,7 @@ AiDocs is a full-stack Retrieval-Augmented Generation (RAG) application. Users s
 ## Table of Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [How the RAG Pipeline Works](#how-the-rag-pipeline-works)
@@ -37,6 +38,16 @@ AiDocs is a full-stack Retrieval-Augmented Generation (RAG) application. Users s
 - **Document lifecycle tracking.** Each document moves through `UPLOADING`, `PROCESSING`, `INDEXED` or `FAILED`.
 - **Clean deletion.** Deleting a document also removes its vectors from the vector store.
 - **Local-first.** Runs on Ollama (`llama3.2:3b` and `nomic-embed-text` by default). An OpenAI configuration is included, commented out, as an alternative.
+
+---
+
+## Screenshots
+
+### Login / Sign up
+![Login page](docs/screenshots/login.png)
+
+### Chat with citations
+![Chat panel](docs/screenshots/chat.png)
 
 ---
 
